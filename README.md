@@ -1,5 +1,7 @@
 # Preparing for the GRE: Dos and Donts from a Statistical Standpoint
 
+View the report [here](http://msieviec.github.io/gre_analysis/gre.html).
+
 # Abstract
 
 ## Objective
@@ -33,8 +35,6 @@ After exploratory analysis, scores of the different practice tests were compared
 ## Results
 
 All average GRE scores were found to be at least as high as all average practice test scores, with ETS's PowerPrep 1 and 2 Q scores having no significant difference from GRE scores, indicating their use as the most accurate predictor of GRE scores. The comparison of practice AW scores to GRE scores was inconclusive. V scores were found to be distributed more highly at less than 94 hours studied, with Q scores approaching but failing to reach significance with the same metric. Test takers studying 35-93 hours were found to have the greatest (though still weak) positive correlations with GRE scores. Q and V scores were not found to be distributed differently according to the number of practice tests taken, however weak positive correlations were found with GRE scores in test takers who took 3 practice tests.
-
-
 
 # Files and Folders
 - gre_files/ - images for html document
