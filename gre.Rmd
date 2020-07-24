@@ -1,0 +1,800 @@
+---
+title: "Preparing for the GRE: Dos and Don'ts from a Statistical Standpoint"
+author: "Michael Sieviec"
+date: "7/22/2020"
+output: 
+    bookdown::html_document2:
+        code_folding: hide
+        toc: true
+        toc_float:
+            collapsed: false
+
+---
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message = F)
+setwd("~/R/GRE/")
+```
+
+# Abstract
+
+## Objective
+
+The Graduate Record Examinations (GRE) are a common requirement for acceptance into graduate school. The purpose of this study was to find ways to anticipate GRE scores by analysis of practice test results, as well as to assess how GRE scores are affected by the number of practice tests taken and the number of hours studied.
+
+## Methods
+
+The data were self-reported scores from practice tests and the GRE. Two sources were used: [Practice GRE scores vs. real GRE scores](https://forum.thegradcafe.com/topic/38585-practice-gre-scores-vs-real-gre-scores/page/10/#comments) (The GradCafe) and [What were your real GRE & practice test (Kaplan, Manhattan, Princeton, etc.) scores?](https://www.quora.com/What-were-your-real-GRE-practice-test-Kaplan-Manhattan-Princeton-etc-scores?share=1) (Quora). What was recorded were:
+
+- GRE scores (verbal, quantitative, and analytical writing where available)
+- Online practice test scores from:
+    - ETS PowerPrep 1 and 2
+    - Kaplan 1 and 2
+    - Magoosh 1 and 2
+    - Manhattan 1 and 2
+    - The Princeton Review 1 and 2
+- The number of hours an individual studied
+- The number of practice tests an individual took (including practice tests of individual sections)
+
+What was not recorded were:
+
+- GRE scores from the old grading system
+- Scores from less popular tests (e.g. Barron's)
+- Practice test scores without accompanying GRE scores
+- Scores of individual practice test sections (e.g. only verbal and no quantitative)
+- Scores that were too ambiguous to satisfactorily classify
+
+After exploratory analysis, scores of the different practice tests were compared to the corresponding GRE scores. Analytical writing scores were not divided by the different practice tests as the sample size was too small. Hours studied and tests taken were stratified by quantiles (3 and 6, respectively), the GRE Q and V scores of which were compared for significant differences.
+
+## Results
+
+All average GRE scores were found to be at least as high as all average practice test scores, with ETS's PowerPrep 1 and 2 Q scores having no significant difference from GRE scores, indicating their use as the most accurate predictor of GRE scores. The comparison of practice AW scores to GRE scores was inconclusive. V scores were found to be distributed more highly at less than 94 hours studied, with Q scores approaching but failing to reach significance with the same metric. Test takers studying 35-93 hours were found to have the greatest (though still weak) positive correlations with GRE scores. Q and V scores were not found to be distributed differently according to the number of practice tests taken, however weak positive correlations were found with GRE scores in test takers who took 3 practice tests.
+
+# The Data
+
+```{r load, warning = F}
+library(tidyverse)
+library(ggplot2)
+library(GGally)
+library(DT)
+
+
+gre_scores <- read_csv("gre_scores.csv", na = "NA")
+
+data_names <- c("GRE V", "GRE Q", "GRE AW", 
+                 "Number of Practice Tests", "Hours Studied",
+                 "PowerPrep 1 V", "PowerPrep 1 Q", "PowerPrep 1 AW",
+                 "PowerPrep 2 V", "PowerPrep 2 Q", "PowerPrep 2 AW",
+                 "Kaplan 1 V", "Kaplan 1 Q", "Kaplan 2 V", "Kaplan 2 Q",
+                 "Princeton Review 1 V", "Princeton Review 1 Q", "Princeton Review 1 AW", 
+                 "Princeton Review 2 V", "Princeton Review 2 Q", "Princeton Review 2 AW",
+                 "Manhattan 1 V", "Manhattan 1 Q", "Manhattan 2 V", "Manhattan 2 Q",
+                 "Magoosh 1 V", "Magoosh 1 Q", "Magoosh 2 V", "Magoosh 2 Q")
+
+names(gre_scores) <- data_names
+
+gre_scores %>% datatable(caption = htmltools::tags$caption(
+                         style = "caption-side: bottom; 
+                            text-align: center;
+                            color: black",
+                         "Table 2.1: GRE Data"),
+                         options = list(scrollX = T))
+```
+The biggest problem was the *large* number of missing data points, but this is to be expected. Each row represents an individual, and no one reported taking every single test that was selected, not even those who took a dozen or more practice tests.
+
+## Comparing Percentiles {#percs}
+
+One question asked was how representative of GRE scores is the data we've collected. On page 2 of [GRE General Test Interpretive Data](https://www.ets.org/s/gre/pdf/gre_guide_table1a.pdf), we see in tables 1B and 1C scores and the percentiles they fall into.
+
+```{r percs}
+# percentiles table
+bind_cols(Percentile = quantile(gre_scores[1], probs = seq(0, 1, 0.2), na.rm = T) %>% names(),
+    "V Score" = quantile(gre_scores[1], probs = seq(0, 1, 0.2), na.rm = T),
+    "Q Score" = quantile(gre_scores[2], probs = seq(0, 1, 0.2), na.rm = T),
+    "AW Score" = quantile(gre_scores[3], probs = seq(0, 1, 0.2), na.rm = T)) %>%
+    arrange(-row_number()) %>%
+    datatable(caption = htmltools::tags$caption(
+                         style = "caption-side: bottom; 
+                            text-align: center;
+                            color: black",
+                         "Table 2.2: GRE Score Percentiles"),
+              options = list(dom = "t"))
+```
+In table [2.2](#percs), we see the scores tend to be higher than the average on the GRE (a visualization can be found in figure \@ref(fig:pairs1)).
+
+## Missing Scores {#na}
+
+```{r na}
+# find total scores for each test
+prac_tally <- gre_scores %>% 
+    select(6:ncol(gre_scores)) %>%
+    is.na() %>% 
+    (function(x) nrow(x) - colSums(x)) %>% 
+    round(2) %>%
+    sort(decreasing = T)
+
+prac_tally <- prac_tally %>% 
+    tibble("Test" = names(.), "Times Taken" = .) %>%
+    mutate("Proportion of Total" = round(.$"Times Taken"/nrow(gre_scores), 2))
+
+prac_tally %>% datatable(caption = htmltools::tags$caption(
+                style = "caption-side: bottom;
+                    text-align: center;
+                    color: black",
+                "Table 2.3: Tally of GRE Practice Scores"),
+                options = list(pageLength = 5))
+```
+
+In table [2.3](#na), ETS's PowerPrep 1 and 2 tests are shown to be by far the most popular, with 74% and 69% of test takers using them, respectively. Manhattan's 1 places third and Kaplan's 1 places fourth. Both Kaplan and Princeton 2 have samples of less than 20, which is rather small in comparison. The sample of analytical writing scores is even smaller, unfortunately, as that section generally appears to be an afterthought for GRE takers.
+
+## Visualizing Verbal and Quantitative Scores
+
+```{r pairs1, fig.align = "center", fig.cap = "Pairs Plot of Q, V Scores with Hours Studied, Tests Taken", cache = T}
+# pairs plot of V/Q scores vs number of practice tests and hours studied
+gre_scores %>% ggpairs(., columns = c(1, 2, 4, 5),
+                       columnLabels = c("GRE V Score", "GRE Q Score", "Practice Tests", "Hours Studied"),
+                       upper = list(continuous = "points"),
+                       diag = list(continuous = wrap("densityDiag", fill = "black", alpha = 0.5)))
+
+```
+
+Overall Q and V scores are clearly not normally distributed (figure \@ref(fig:pairs1), first row, first column; second row, second column). Possible outliers can be found in the number of practice tests taken and hours studied (bottom row, third column). More interestingly, there are several apparently negative trends when seen at a glance. The bottom row displays some clearly negative relationships between hours studied and practice test scores for both sections.
+
+## Visualizing Analytical Writing Scores
+
+```{r pairs2, fig.align = "center", fig.cap = "Pairs Plot of AW Scores with Hours Studied, Tests Taken", cache = T}
+# pairs of AW vs number of practice tests and hours studied
+gre_scores %>% ggpairs(., columns = c(3, 4, 5),
+                       columnLabels = c("GRE AW Score", "Practice Tests", "Hours Studied"),
+                       upper = list(continuous = "points"),
+                       diag = list(continuous = wrap("densityDiag", fill = "black", alpha = 0.5)))
+```
+In figure \@ref(fig:pairs2), a repetition of the case in \@ref(fig:pairs1) regarding V and Q scores was found&mdash;that is, analytical writing scores are not normally distributed and the relationship they have with tests taken and hours studied is unclear, possibly even negative.
+
+## Finding Outliers
+
+To get a better sense of outliers in practice tests and hours studied, the box plots in \@ref(fig:boxplots) were referenced.
+
+```{r boxplots, fig.align = "center", fig.cap = "Box Plots of Hours Studied, Tests Taken"}
+p1 <- gre_scores %>% ggplot(aes(y = `Hours Studied`)) + 
+    geom_boxplot(width = 0.5) +
+    theme(axis.text.x = element_blank(),
+          axis.ticks.x = element_blank(),
+          panel.grid.major.x = element_blank(),
+          panel.grid.minor.x = element_blank())
+
+p2 <- gre_scores %>% ggplot(aes(y = `Number of Practice Tests`)) + 
+    geom_boxplot() +
+    scale_y_continuous(position = "right") +
+    theme(axis.text.x = element_blank(),
+          axis.ticks.x = element_blank(),
+          panel.grid.major.x = element_blank(),
+          panel.grid.minor.x = element_blank())
+
+gridExtra::grid.arrange(p1, p2, ncol = 2)
+```
+```{r hours_min, collapse = T}
+# minimum hours studied 0
+min(gre_scores$`Hours Studied`, na.rm = T)
+```
+
+Outliers exist at hours studied > 200 and tests taken &ge; 15. There also was a person who said they studied 0 hours.
+
+# Cleaning the Data
+
+```{r clean, collapse = T}
+# drop outliers and 0 hours studied
+gre_scores <- gre_scores %>% 
+    filter(., `Number of Practice Tests` < 15 & 
+               (`Hours Studied` <= 200 & `Hours Studied` > 0 | `Hours Studied` %>% is.na()))
+
+# subset aw, discarding NAs
+gre_aw <- gre_scores %>% 
+    select(contains(" AW")) %>%
+    filter(!is.na(`GRE AW`))
+
+# subset v and q scores
+gre_v <- gre_scores %>% 
+    select(contains(" V"))
+gre_q <- gre_scores %>% 
+    select(contains(" Q"))
+
+nrow(gre_scores)
+```
+
+The majority of parsing/cleaning the data came during collection. Outlying data points were dropped, and the data split into subsets for verbal, quantitative, and analytical writing scores. 204 observations remained after cleaning.
+
+# Comparison of Practice Scores to GRE Scores
+
+In this section, verbal, quantitative, and analytical writing scores were analyzed separately, as it is generally in one's interest to focus on a particular section of the GRE more than another based on the kind of program they are interested in applying to.
+
+## Q-Q Plots {#qq1}
+
+Normality in the practice scores was assessed using Q-Q plots (figures \@ref(fig:qqqplot), \@ref(fig:vqqplot)).
+
+```{r qqqplot, fig.align = 'center', fig.cap = 'Q-Q Plots of Q Scores', cache = T}
+# q score qq plots
+gre_qqq <- gre_q %>%
+    pivot_longer(-`GRE Q`, names_to = "test") %>% 
+    drop_na() %>%
+    mutate(test = test %>% sort() %>% as_factor())
+
+gre_qqq %>% ggplot(aes(sample = value, color = test)) +
+    stat_qq() +
+    stat_qq_line() +
+    facet_wrap(~test, nrow = 2) +
+    scale_color_discrete(guide = F) +
+    ylab("Sample") +
+    xlab("Theoretical")
+```
+
+```{r vqqplot, fig.align = 'center', fig.cap = 'Q-Q Plots of V Scores', cache = T}
+# v score qq plots
+gre_vqq <- gre_v %>%
+    pivot_longer(-`GRE V`, names_to = "test") %>%
+    drop_na() %>%
+    mutate(test = test %>% sort() %>% as_factor())
+
+gre_vqq %>% ggplot(aes(sample = value, color = test)) +
+    stat_qq() +
+    stat_qq_line() +
+    facet_wrap(~test, nrow = 2) +
+    scale_color_discrete(guide = F) +
+    ylab("Sample") +
+    xlab("Theoretical")
+```
+Some of the data were found to be skewed, while some are roughly normal.
+
+## Histograms of Mean Distributions
+
+Resampling (n = ~60% of subset, 10,000 samples each) was performed to plot the distribution of the mean for each test to evaluate viability of the samples for t-tests.
+
+```{r qhists, fig.align = 'center', fig.cap = 'Distributions of Sample Means, Q Scores', cache = T}
+get_sample_means <- function(x) {
+    # this function simply returns means of 10,000 samples from a dataset
+    replicate(10000, mean(sample(x[!is.na(x)], floor(length(x[!is.na(x)])*0.6))))
+}
+
+# get means of 10,000 repeated samples (n = ~90% of data) of q practice scores, and plot
+q_sampled_means <- apply(gre_q[-1], 2, get_sample_means)
+q_sampled_means %>% as_tibble() %>% 
+    pivot_longer(cols = everything()) %>% 
+    ggplot(aes(value, fill = name)) + 
+    geom_histogram(show.legend = F) + 
+    facet_wrap(~ name, nrow = 2) +
+    ylab("Frequency") +
+    xlab("Sample mean")
+```
+```{r vhists, fig.align = 'center', fig.cap = 'Distributions of Sample Means, V Scores', cache = T}
+# get means of 10,000 repeated samples (n = ~90% of data) of v practice scores, and plot
+v_sampled_means <- apply(gre_v[-1], 2, get_sample_means)
+v_sampled_means %>% as_tibble() %>% 
+    pivot_longer(cols = everything()) %>% 
+    ggplot(aes(value, fill = name)) + 
+    geom_histogram(show.legend = F) + 
+    facet_wrap(~ name, nrow = 2) +
+    ylab("Frequency") +
+    xlab("Sample mean")
+```
+Figures \@ref(fig:qhists) and \@ref(fig:vhists) show the mean distributions of Princeton Review 2 and Kaplan 2 deviating too far from normal for t-tests. They were subsequently discarded.
+
+```{r droptests}
+# drop PR 2, Kaplan 2
+gre_q <- gre_q %>% select(-c(`Princeton Review 2 Q`, `Kaplan 2 Q`))
+gre_v <- gre_v %>% select(-c(`Princeton Review 2 V`, `Kaplan 2 V`))
+```
+
+## Scatter Plots
+
+```{r qplots, fig.align = 'center', fig.width = 12, fig.cap = 'Practice Test Scores vs. GRE Scores, Q'}
+# q score scatter plots
+gre_q %>% pivot_longer(-`GRE Q`, names_to = "test") %>%
+    drop_na() %>%
+    mutate(test = test %>% sort() %>% as_factor()) %>%
+    ggplot(aes(value, `GRE Q`)) + 
+    geom_point() + 
+    geom_smooth(method = "lm",
+                fullrange = T,
+                aes(color = test),
+                show.legend = F) +
+    facet_wrap(~test, nrow = 2) + 
+    xlab("Practice score") + 
+    ylab("GRE score")
+```
+
+```{r vplots, fig.align = 'center', fig.width = 12, fig.cap = 'Practice Test Scores vs. GRE Scores, V', cache = T}
+# v score scatter plots
+gre_v %>% pivot_longer(-`GRE V`, names_to = "test") %>%
+    drop_na() %>%
+    mutate(test = test %>% sort() %>% as_factor()) %>%
+    ggplot(aes(value, `GRE V`)) + 
+    geom_point() + 
+    geom_smooth(method = "lm",
+                fullrange = T,
+                aes(color = test),
+                show.legend = F) +
+    facet_wrap(~test, nrow = 2) + 
+    xlab("Practice score") + 
+    ylab("GRE score")
+```
+Figures \@ref(fig:qplots) and \@ref(fig:vplots) show positive linear relationships between the GRE scores and all of the practice test scores, some stronger than others. In this case, this is a sensible relationship as one would expect that doing better on a practice test translates to better results on the GRE. Variance in the errors appears inconsistent, with some data appearing more homoscedastic than others.
+
+## Correlation Heatmaps
+
+Based on the plots in the previous section, finding the Spearman correlation of the variables seemed reasonable.
+
+```{r corrq, fig.align = 'center', fig.cap = 'Q Score Correlations', cache = T}
+# q score correlation heatmap
+q_cor_plot <- gre_q %>% select(sort(current_vars())) %>%
+    cor(use = "pairwise.complete.obs",
+        method = "spearman")
+
+q_cor_plot[upper.tri(q_cor_plot)] <- NA
+
+q_cor_plot %>% as_tibble(rownames = NA) %>%
+    rownames_to_column() %>%
+    rename(var1 = rowname) %>%
+    pivot_longer(-var1, names_to = "var2", values_drop_na = T) %>%
+    mutate(var1 = as_factor(var1), var2 = as_factor(var2)) %>%
+    ggplot(aes(x = var1, y = var2)) +
+    geom_tile(aes(fill = value)) + 
+    geom_text(aes(label = value %>% round(3))) +
+    theme_classic() + 
+    scale_fill_viridis_c(option = "magma") +
+    theme(axis.title = element_blank(),
+          axis.text.y.right = element_text(),
+          legend.position = c(0.1, 0.8)) +
+    scale_y_discrete(position = "right") +
+    labs(fill = "Correlation") +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+```
+The bottom row of figure \@ref(fig:corrq) shows Spearman correlations of GRE scores with those of each practice test. The Princeton Review 1 score is the most strongly correlated with GRE score ($\rho$ &cong; 0.88). However, it also had a smaller sample size ([2.2](#na)). More convincingly, as it has the second largest sample size, is ETS's PowerPrep 2 with a correlation coefficient of ~0.81. All of them have a fairly strong correlation, with the weakest being Kaplan 1 at ~0.715.
+
+```{r vcorr, fig.align = 'center', fig.cap = 'V Score Correlations', cache = T}
+# V score correlation heatmap
+v_cor_plot <- gre_v %>% select(sort(current_vars())) %>%
+    cor(use = "pairwise.complete.obs",
+        method = "spearman")
+
+v_cor_plot[upper.tri(q_cor_plot)] <- NA
+
+v_cor_plot %>% as_tibble(rownames = NA) %>%
+    rownames_to_column() %>%
+    rename(var1 = rowname) %>%
+    pivot_longer(-var1, names_to = "var2", values_drop_na = T) %>%
+    mutate(var1 = as_factor(var1), var2 = as_factor(var2)) %>%
+    ggplot(aes(x = var1, y = var2)) +
+    geom_tile(aes(fill = value)) + 
+    geom_text(aes(label = value %>% round(3))) +
+    theme_classic() + 
+    scale_fill_viridis_c(option = "magma") +
+    theme(axis.title = element_blank(),
+          axis.text.y.right = element_text(),
+          legend.position = c(0.1, 0.8)) +
+    scale_y_discrete(position = "right") +
+    labs(fill = "Correlation") +
+    theme(axis.text.x = element_text(angle = 45, vjust = 1, hjust = 1))
+```
+Again, in figure \@ref(fig:vcorr) PowerPrep 2 verbal scores correlate strongly with those of the GRE ($\rho$ &cong; 0.82). Overall, the correlations here are weaker&mdash;some by a fair margin, which is a bit surprising. Magoosh 1 and 2 are moderate at best.
+
+## T-Tests {#tt1}
+
+As the data are different results from the same person, paired t-tests of means were used to test the null hypothesis that the means from the practice test scores are the same as those of the GRE scores. This made the tests more robust and tolerant to violations of normality ([4.1](#qq1)). These tests were two tailed, with a significance level of $\alpha$ = 0.05 for each. To control for type I errors, the Benjamini-Hochberg procedure was used. Scores between practice tests were not compared.
+
+```{r function}
+# function to return t-test results
+get_t_results <- function(data1, data2) {
+    # data1 is gre_q or gre_v
+    
+    # drop_na rows, retrieve statistics and results
+    data <- bind_cols(data1, data2) %>% drop_na()
+    test <- t.test(data[[1]], data[[2]],
+                   alternative = "two.sided",
+                   paired = T) %>%
+        broom::tidy() %>% 
+        select(1:3)
+    
+    return(test)
+}
+```
+
+```{r qttests}
+# table for t-tests on Q scores, add multiple comparisons adjustment
+qt <- map(gre_q[2:9],
+             function(x) get_t_results(data1 = gre_q[1], x)) %>%
+    bind_rows(.id = "test") %>%
+    mutate(p.adjusted = p.adjust(p.value, method = "hochberg"),
+           "H<sub>0</sub>" = ifelse(p.adjusted > 0.05, "Do Not Reject", "Reject")) %>%
+    mutate(across(2:3, ~ round(.x, 3)),
+           across(4:5, ~ format(.x, scientific = T, digits = 3))) %>%
+    arrange(test) %>%
+    rename_with(.cols = 1:3, str_to_title) %>%
+    rename_with(.cols = 4:5, ~c("p-value", "Adjusted p"))
+
+qt %>% datatable(caption = htmltools::tags$caption(
+                style = "caption-side: bottom;
+                    text-align: center;
+                    color: black",
+                    "Table 4.1: Q Score T-Test Results"),
+                options = list(dom = "t",
+                               scrollX = T),
+                escape = F)
+```
+```{r vttests}
+# table for t-tests on V scores
+vt <- map(gre_v[2:9],
+          function(x) get_t_results(data1 = gre_v[1], x)) %>% 
+    bind_rows(.id = "test") %>%
+    mutate(p.adjusted = p.adjust(p.value, method = "hochberg"),
+           "H<sub>0</sub>" = ifelse(p.adjusted > 0.05, "Do Not Reject", "Reject")) %>%
+    mutate(across(2:3, ~ round(.x, 3)),
+           across(4:5, ~ format(.x, scientific = T, digits = 3))) %>%
+    arrange(test) %>%
+    rename_with(.cols = 1:3, str_to_title) %>%
+    rename_with(.cols = 4:5, ~c("p-value", "Adjusted p"))
+
+vt %>% datatable(caption = htmltools::tags$caption(
+                 style = "caption-side: bottom;
+                    text-align: center;
+                    color: black",
+                 "Table 4.2: V Score T-Test Results"),
+                 options = list(dom = "t",
+                                scrollX = T),
+                 escape = F)
+```
+
+For the quantitative scores (table [4.1](#tt1)), 6 out of 8 tests rejected the null hypothesis, finding significant differences in the mean scores from the GRE, leaving 2 which did not: PowerPreps 1 and 2. The conventional wisdom that PowerPreps are good predictors of how well one can expect to perform on the GRE was bolstered by this finding. For the rest, one could expect to score lower on any of them than on the GRE (all of the mean differences/test statistics are positive).
+
+For the verbal scores (table [4.2](#tt1)), the differences were all significant and less than that of the GRE.
+
+## Analytical Writing
+
+In total only 7 scores remained after cleaning the data. Moreover, one person recorded two practice scores. It was assumed that this wouldn't cause any real issues for a Wilcoxon signed rank test.
+
+```{r aw}
+# manipulate AW data into clearer format
+gre_aw <- gre_aw %>% filter_at(vars(-`GRE AW`), any_vars(!is.na(.))) %>% 
+    pivot_longer(-`GRE AW`, names_to = "Test",
+                 values_to = "Practice Score",
+                 values_drop_na = T) %>%
+    rename("GRE Score" = `GRE AW`) %>% 
+    select(2, 3, 1) %>%
+    arrange(`Test`)
+
+gre_aw %>% datatable(caption = htmltools::tags$caption(
+            style = "caption-side: bottom;
+                    text-align: center;
+                    color: black",
+                    "Table 4.3: Analytical Writing Scores"),
+            options = list(dom = "t"))
+```
+
+```{r awplot, fig.align = 'center', fig.cap = 'Analytical Writing Practice Test Scores vs. GRE Scores'}
+# plot AW data
+gre_aw %>% ggplot(aes(`Practice Score`, `GRE Score`, color = `Test`)) +
+    geom_point() +
+    geom_smooth(method = "lm", aes(group = 1))
+```
+
+In figure \@ref(fig:awplot) is shown that a line is an overall bad model for the data&mdash;none of the points lie on it. Still, there is a somewhat positive trend between test and GRE scores. Computing correlation was not done.
+
+### Wilcoxon Signed Rank Test {#wilcox1}
+
+As the data were paired, a Wilcoxon signed rank test was performed to determine if the scores are distributed differently. The significance level was set at $\alpha$ = 0.05 again for this two-sided test. Practice test types were ignored. The results are in table [4.4](#wilcox1).
+
+```{r wilcox}
+# wilcoxon rigned rank test on AW data
+wilcox.test(gre_aw$`GRE Score`,
+            gre_aw$`Practice Score`,
+            alternative = "two.sided",
+            paired = T) %>% 
+    broom::tidy() %>% 
+    select(-3, 4, 1, 2) %>%
+    mutate(p.value = round(p.value, 3)) %>%
+    rename(c("Statistic" = statistic, "p-value" = p.value, "Alternative" = alternative)) %>%
+    datatable(caption = htmltools::tags$caption(
+                style = "caption-side: bottom;
+                    text-align: center;
+                    color: black",
+                "Table 4.4: Wilcoxon Signed Rank Test of AW Scores Results"),
+              options = list(dom = "t"))
+    
+```
+
+The test was not able to reject the null hypothesis that the scores are distributed identically, though it did come very close. Given the data and results, further studying seems warranted.
+
+# Effects of Studying and Practicing on GRE scores
+
+This section analyzes how taking practice tests and studying impacts a person's GRE performance.
+
+## Visualizing Scores by Hours and Tests {#ht}
+```{r htsubsets}
+# subset hours studied and practice tests, drop NA values
+gre_hours <- gre_scores %>%
+    select(c(1:2, 5)) %>%
+    drop_na()
+
+gre_tests <- gre_scores %>%
+    select(c(1:2, 4)) %>%
+    drop_na()
+```
+
+```{r hplot, fig.align = 'center', fig.cap = 'Hours Studied vs. Q and V Scores', cache = T}
+gre_hours %>% pivot_longer(-`Hours Studied`, names_to = "test", values_to = "score") %>%
+    ggplot(aes(`Hours Studied`, score, color = test)) +
+    geom_point(show.legend = F) +
+    facet_grid(~test) +
+    ylab("Score")
+```
+
+```{r tplot, fig.align = 'center', fig.cap = 'Practice Tests Taken vs. Q and V Scores', cache = T}
+gre_tests %>% pivot_longer(-`Number of Practice Tests`, names_to = "test", values_to = "score") %>%
+    ggplot(aes(`Number of Practice Tests`, score, color = test)) +
+    geom_point(show.legend = F) +
+    facet_grid(~test) +
+    ylab("Score")
+```
+
+Given figures \@ref(fig:hplot) and \@ref(fig:tplot), the relationships are not clear, and it is safe to say if there are any that they aren't linear. Spearman's rho was used to find what correlation there may be between the variables.
+
+```{r htcor}
+# assemble correlation table
+qh <- cor(gre_hours$`GRE Q`, gre_hours$`Hours Studied`, method = "spearman") %>% round(3)
+qt <- cor(gre_tests$`GRE Q`, gre_tests$`Number of Practice Tests`, method = "spearman") %>% round(3)
+
+vh <- cor(gre_hours$`GRE V`, gre_hours$`Hours Studied`, method = "spearman") %>% round(3)
+vt <- cor(gre_tests$`GRE V`, gre_tests$`Number of Practice Tests`, method = "spearman") %>% round(3)
+
+cor_table <- bind_cols("Variable" = c("Hours Studied", "Tests Taken"),
+                       "Q" = c(qh, qt),
+                       "V" = c(vh, vt))
+cor_table %>% datatable(caption = htmltools::tags$caption(
+                        style = "caption-side: bottom;
+                                text-align: center;
+                                color: black",
+                                "Table 5.1: Spearman Correlations of Q and V Scores with Hours Studied, Tests Taken"),
+                        options = list(dom = "t"))
+```
+
+The result in table [5.1](#ht) is very strange, but it confirms the suspicion from section \@ref(visualizing-verbal-and-quantitative-scores). There is indeed a weak-to-moderate negative correlation between hours studied and both Q and V scores. Tests taken seem to have no real effect. Does this mean there is no point in preparing, or even more bizarrely, that studying will hurt your scores?
+
+Intuitively, one might say that someone can over- or under-prepare&mdash;take too many or two few tests, or study too little or too much. This would dictate a kind of "sweet spot" for time spent preparing, though exactly where it is likely depends on the individual. A search for hidden trends was conducted.
+
+## The Data by Quantile
+
+Quantiles were assigned to the number of tests taken and hours studied&mdash;3 and 6, respectively&mdash;and calculating the means and Spearman correlations for each. These quantiles were chosen as they divided up the sets into equal subsets (n = 13 and 34, respectively).
+
+### Visualizing Quantiles
+
+```{r quants1}
+# statistics by 6, 3 quantiles for hours, tests
+gre_hours <- gre_hours %>% mutate(hours_quantile = ntile(`Hours Studied`, 3))
+
+quantile_label <- c("4-34", "35-94", "93-200") %>% factor(., levels = c("4-34", "35-93", "94-200"))
+
+gre_hours <- gre_hours %>% mutate(quantile_label = quantile_label[.$hours_quantile])
+
+gre_tests <- gre_tests %>% mutate(tests_quantile = ntile(`Number of Practice Tests`, 6))
+
+quantile_label <- c("2", "3", "4", "5-6", "7-9", "9-14") %>% as_factor()
+
+gre_tests <- gre_tests %>% mutate(quantile_label = quantile_label[.$tests_quantile])
+```
+
+```{r hquantplot, fig.align = 'center', fig.cap = 'Box Plots of GRE Scores by Hours Studied', cache = T}
+# hours quantile plot
+gre_hours %>% select(-hours_quantile) %>% 
+    pivot_longer(-c(quantile_label, `Hours Studied`), names_to = "section", values_to = "score") %>%
+    ggplot(aes(y = score, color = section)) +
+    geom_boxplot() +
+    facet_grid(~quantile_label) +
+    theme(axis.text.x = element_blank(),
+          axis.ticks.x = element_blank(),
+          panel.grid.major.x = element_blank(),
+          panel.grid.minor.x = element_blank()) +
+    ylab("GRE Score") +
+    xlab("Hours Studied") +
+    labs(color = "Section") +
+    scale_color_discrete(labels = c("Q", "V"))
+```
+
+```{r tquantplot, fig.align = 'center', fig.cap = 'Box Plots of GRE Scores by Practice Tests Taken', cache = T}
+# tests quantile plot
+gre_tests %>% select(-tests_quantile) %>% 
+    pivot_longer(-c(quantile_label, `Number of Practice Tests`), names_to = "section", values_to = "score") %>%
+    ggplot(aes(y = score, color = section)) +
+    geom_boxplot() +
+    facet_wrap(~quantile_label, nrow = 2) +
+    theme(axis.text.x = element_blank(),
+          axis.ticks.x = element_blank(),
+          panel.grid.major.x = element_blank(),
+          panel.grid.minor.x = element_blank()) +
+    ylab("GRE Score") +
+    xlab("Practice Tests") +
+    labs(color = "Section") +
+    scale_color_discrete(labels = c("Q", "V"))
+```
+Figure \@ref(fig:hquantplot) shows the tightest grouping of scores in the 35-93 hours range, with 3 outliers. Beyond 93 hours studied, the data for both sections appears to be distributed significantly lower. The distributions in \@ref(fig:tquantplot) are somewhat consistent, with a clear exception given to V scores in the 5-6 test range.
+
+### Summary Tables {#quants}
+
+```{r quants2}
+# table to summarize score means and correlations by hours studied quantile
+hqt <- gre_hours %>% group_by(hours_quantile) %>% 
+    summarise("V Mean" = mean(`GRE V`) %>% round(1), 
+              "Q Mean" = mean(`GRE Q`) %>% round(1),
+              "V Correlation" = cor(`Hours Studied`, `GRE V`, method = 'spearman') %>% round(3),
+              "Q Correlation" = cor(`Hours Studied`, `GRE Q`, method = 'spearman') %>% round(3)) %>%
+    select(2:5) %>%
+    bind_cols("Hours Studied" = c("4-34", "35-94", "93-200"), .)
+
+hqt %>% datatable(caption = htmltools::tags$caption(
+                        style = "caption-side: bottom;
+                                text-align: center;
+                                color: black",
+                                "Table 5.2: Means, Correlations of GRE Scores with Hours Studied"),
+                        options = list(dom = "t"))
+```
+
+```{r quants3}
+# table to summarize score means and correlations by tests taken quantile
+tqt <- gre_tests %>% group_by(tests_quantile) %>% 
+    summarise("V Mean" = mean(`GRE V`) %>% round(1), 
+              "Q Mean" = mean(`GRE Q`) %>% round(1),
+              "V Correlation" = cor(`Number of Practice Tests`, `GRE V`, method = 'spearman') %>% round(3),
+              "Q Correlation" = cor(`Number of Practice Tests`, `GRE Q`, method = 'spearman') %>% round(3)) %>% 
+    select(2:5) %>%
+    bind_cols("Number of Practice Tests" = c("2", "3", "4", "5-6", "7-9", "9-14"), .)
+
+tqt %>% datatable(caption = htmltools::tags$caption(
+                        style = "caption-side: bottom;
+                                text-align: center;
+                                color: black",
+                                "Table 5.3: Means, Correlations of GRE Scores with Practice Tests Taken"),
+                        options = list(dom = "t"))
+```
+
+In table [5.2](#quants), though the highest average scores came in the 4-34 hour category, the strongest correlation between GRE scores and hours studied came in the 35-93 hours category, however it is still fairly weak at about ~0.29 for both verbal and quantitative. In [5.3](#quaunts), the correlations were also all weak or virtually non-existent, though this result may be spurious as there is no real variability in the bottom three quantiles of the number of practice tests.
+
+## Testing
+
+First, normality was assessed via Q-Q plots.
+
+### Q-Q Plots {#qq2}
+
+```{r hqq, fig.align = 'center', fig.cap = 'Q-Q Plots of Scores by Hours Studied', cache = T}
+gre_hours %>% select(-c(`Hours Studied`, hours_quantile)) %>% 
+    pivot_longer(-quantile_label) %>% 
+    ggplot(aes(sample = value, color = name)) + 
+    stat_qq() + 
+    stat_qq_line() + 
+    facet_grid(name ~ quantile_label) + 
+    scale_x_continuous(breaks = c(-1, 0, 1)) +
+    labs(x = "Theoretical", y = "Sample") +
+    theme(legend.position = "none")
+```
+
+```{r tqq, fig.align = 'center', fig.cap = 'Q-Q Plots of Scores by Practice Tests Taken', cache = T}
+gre_tests %>% 
+    select(-c(`Number of Practice Tests`, tests_quantile)) %>% 
+    pivot_longer(-quantile_label) %>% 
+    ggplot(aes(sample = value, color = name)) + 
+    stat_qq() + 
+    stat_qq_line() + 
+    facet_grid(name ~ quantile_label) +
+    labs(x = "Theoretical", y = "Sample") +
+    theme(legend.position = "none")
+```
+
+In figure \@ref(fig:hqq) are shown significant violations of normality. \@ref(fig:tqq) has some issues as well (again, the hard limit at 170 presents itself).
+
+### Kruskal-Wallis Tests {#kw}
+
+As a result of the findings in [5.3.1](#qq2), standard parametric methods did not seem appropriate for these data. Instead, Kruskal-Wallis tests were conducted on each dataset with a significance level of $\alpha$ = 0.05.
+
+```{r hkwtests}
+# kw tests on hours
+qh <- gre_hours %>% kruskal.test(`GRE Q` ~ hours_quantile, .) %>% 
+    broom::tidy() %>% 
+    select(1:2)
+vh <- gre_hours %>% kruskal.test(`GRE V` ~ hours_quantile, .) %>% 
+    broom::tidy() %>% select(1:2)
+bind_rows(qh, vh) %>% bind_cols(section = c("Q", "V"), .) %>%
+    mutate(across(2:3, ~round(.x, 3))) %>%
+    rename_with(.cols = 1:2, str_to_title) %>%
+    rename("p-value" = p.value) %>%
+    datatable(caption = htmltools::tags$caption(
+                        style = "caption-side: bottom;
+                                text-align: center;
+                                color: black",
+                                "Table 5.4: Kruskal-Wallis Test Results of Scores by Hours Studied"),
+                        options = list(dom = "t"))
+```
+
+```{r tkwtests}
+# kw tests on practice tests
+qt <- gre_tests %>% kruskal.test(`GRE Q` ~ tests_quantile, .) %>% 
+    broom::tidy() %>% select(1:2)
+vt <- gre_tests %>% kruskal.test(`GRE V` ~ tests_quantile, .) %>% 
+    broom::tidy() %>% select(1:2)
+bind_rows(qt, vt) %>% bind_cols(section = c("Q", "V"), .) %>%
+    mutate(across(2:3, ~round(.x, 3))) %>%
+    rename_with(.cols = 1:2, str_to_title) %>%
+    rename("p-value" = p.value) %>%
+    datatable(caption = htmltools::tags$caption(
+                        style = "caption-side: bottom;
+                                text-align: center;
+                                color: black",
+                                "Table 5.5: Kruskal-Wallis Test Results of Scores by Practice Tests"),
+                        options = list(dom = "t"))
+```
+In table [5.4](#kw) is seen the only rejection of the null hypothesis for all tests, regarding V scores according to the number of hours studied. Q scores came close to significance with respect to hours studied&mdash;further studies may be warranted.
+
+### Post-Hoc Analysis {#pha}
+
+Based on table [5.4](#kw), post-hoc analysis of V scores by hours studied was warranted. Mann-Whitney U tests without multiple comparisons correction are common for the post-hoc analysis of a Kruskal-Wallis test, so they were employed with $\alpha$ = 0.05. Table [5.6](#pha) shows a significant difference between both the first (4-34 hours) and third (94-200 hours), and the second (35-93 hours) and third quantiles.
+
+```{r posthoc}
+make_tests <- function(data, var, sub) {
+    # this function is specifically for comparing means of GRE data
+    # only Mann-Whitney u test
+    # data-the dataset
+    # var-the variable to test
+    # sub-the variable used to divide var into subsets for testing
+    
+    sub <- deparse(substitute(sub))
+    var <- deparse(substitute(var))
+    
+    index <- sort(unique(data[[sub]]))
+    
+    tests <- list()
+    tests_names <- list()
+
+    for (i in index[1:(length(index) - 1)]) {
+        for (j in index[(i + 1):length(index)]) {
+            w_test <- wilcox.test(data[var][data[sub] == i, ][[1]],
+                                  data[var][data[sub] == j, ][[1]],
+                                  alternative = "two.sided")
+            name <- paste(i, ", ", j, sep = "")
+            tests <- append(tests, list(w_test))
+            tests_names <- append(tests_names, name)
+        }
+    }
+    tests <- lapply(tests,
+                    function(x) broom::tidy(x) %>% select(1, 2))
+    
+    names(tests) <- tests_names
+    return(tests)
+}
+```
+
+```{r vhposthoc}
+gre_hours %>% make_tests(., `GRE V`, hours_quantile) %>% 
+    bind_rows(.id = "test") %>%
+    mutate(p.value = round(p.value, 3)) %>%
+    rename_with(., ~c("Quantiles Compared", "Statistic", "p-value")) %>%
+    datatable(caption = htmltools::tags$caption(
+                        style = "caption-side: bottom;
+                                text-align: center;
+                                color: black",
+                                "Table 5.6: Mann-Whitney Test Results of V Scores by Hours Studied"),
+                        options = list(dom = "t"))
+```
+
+# Conclusion
+
+The Graduate Record Examinations remain a key stepping stone in many students' academic careers. 204 self-reported samples were analyzed for the purposes of comparing practice test scores to GRE scores, and discerning what effects studying and practice test taking have on GRE scores. Of the practice tests studied, PowerPrep 1 and 2 provided by ETS were the most accurate predictors of GRE Q scores, with all of the rest showing a significant difference in mean score. For V scores, every test mean was significantly different. What's more, every practice test mean for both Q and V sections was less than that of the GRE scores, indicating a GRE score at least as high as that of the practice tests'. Further study for AW scores is warranted as it could not be concluded that the mean score is different from that of the GRE, though statistical significance was nearly reached with a very small sample (n = 7).
+
+A significant difference was found when comparing V scores based on the amount of hours studied, with test-takers studying 94 or more hours tending to score lower than those who studied less. Q scores approached significance on the same metric, but ultimately the null hypothesis of sharing a distribution was not rejected. Further studying may be warranted. Weak positive correlations ($\rho$ &cong; 0.29 each) with GRE Q and V scores were found with test-takers who studied 35-93 hours. No significant difference in mean GRE Q or V scores was found based on the amount of practice tests taken. Weak positive correlations were found with GRE Q ($\rho$ &cong; 0.24) and V ($\rho$ &cong; 0.12) scores in test-takers who took 3 practice tests, though this result may be spurious due to a lack of variance in the quantile.
+
+# Notes
+
+In the interests of streamlining this report, non-warning messages were suppressed.
+
+This report was generated using OSX 10.15.6, RStudio 1.3.1056, R 4.0.2, and the following libraries:
+
+- bookdown 0.20
+- broom 0.7.0
+- DT 0.14
+- GGally 2.0.0
+- ggplot2 3.3.2
+- tidyverse 1.3.0
