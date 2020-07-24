@@ -569,7 +569,7 @@ Quantiles were assigned to the number of tests taken and hours studied&mdash;3 a
 # statistics by 6, 3 quantiles for hours, tests
 gre_hours <- gre_hours %>% mutate(hours_quantile = ntile(`Hours Studied`, 3))
 
-quantile_label <- c("4-34", "35-94", "93-200") %>% factor(., levels = c("4-34", "35-93", "94-200"))
+quantile_label <- c("4-34", "35-94", "93-200") %>% factor(., levels = .)
 
 gre_hours <- gre_hours %>% mutate(quantile_label = quantile_label[.$hours_quantile])
 
@@ -580,7 +580,7 @@ quantile_label <- c("2", "3", "4", "5-6", "7-9", "9-14") %>% as_factor()
 gre_tests <- gre_tests %>% mutate(quantile_label = quantile_label[.$tests_quantile])
 ```
 
-```{r hquantplot, fig.align = 'center', fig.cap = 'Box Plots of GRE Scores by Hours Studied', cache = T}
+```{r hquantplot, fig.align='center', fig.cap='Box Plots of GRE Scores by Hours Studied', cache=FALSE}
 # hours quantile plot
 gre_hours %>% select(-hours_quantile) %>% 
     pivot_longer(-c(quantile_label, `Hours Studied`), names_to = "section", values_to = "score") %>%
