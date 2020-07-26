@@ -30,11 +30,11 @@ What was not recorded were:
 - Scores of individual practice test sections (e.g. only verbal and no quantitative)
 - Scores that were too ambiguous to satisfactorily classify
 
-After exploratory analysis, scores of the different practice tests were compared to the corresponding GRE scores. Analytical writing scores were not divided by the different practice tests as the sample size was too small. Hours studied and tests taken were stratified by quantiles (3 and 6, respectively), the GRE Q and V scores of which were compared for significant differences.
+After exploratory analysis, scores of the different practice tests were compared to the corresponding GRE scores. Analytical writing scores were not divided by the different practice tests as the sample size was too small. Hours studied and tests taken were stratified by quantiles, the GRE Q and V scores of which were compared for significant differences.
 
 ## Results
 
-All average GRE scores were found to be at least as high as all average practice test scores, with ETS's PowerPrep 1 and 2 Q scores having no significant difference from GRE scores, indicating their use as the most accurate predictor of GRE scores. The comparison of practice AW scores to GRE scores was inconclusive. V scores were found to be distributed more highly at less than 94 hours studied, with Q scores approaching but failing to reach significance with the same metric. Test takers studying 35-93 hours were found to have the greatest (though still weak) positive correlations with GRE scores. Q and V scores were not found to be distributed differently according to the number of practice tests taken, however weak positive correlations were found with GRE scores in test takers who took 3 practice tests.
+All average GRE scores were found to be at least as high as all average practice test scores, with ETS's PowerPrep 1 and 2 Q scores having no significant difference from GRE scores, indicating their use as the most accurate predictor of GRE scores. The comparison of practice AW scores to GRE scores was inconclusive. V scores were found to be distributed more highly at less than 94 hours studied, with Q scores approaching but failing to reach significance with the same metric. Test takers studying 35-93 hours were found to have the greatest (though still weak) positive correlations with GRE scores. Q and V scores were not found to be distributed differently according to the number of practice tests taken, with no significant correlation found, either.
 
 # Files and Folders
 - gre_files/ - images for html document
