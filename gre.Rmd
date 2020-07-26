@@ -569,7 +569,7 @@ Quantiles were assigned to the number of tests taken and hours studied&mdash;3 a
 # statistics by 6, 3 quantiles for hours, tests
 gre_hours <- gre_hours %>% mutate(hours_quantile = ntile(`Hours Studied`, 3))
 
-quantile_label <- c("4-34", "35-94", "93-200") %>% factor(., levels = .)
+quantile_label <- c("4-34", "35-93", "94-200") %>% factor(., levels = .)
 
 gre_hours <- gre_hours %>% mutate(quantile_label = quantile_label[.$hours_quantile])
 
@@ -613,7 +613,7 @@ gre_tests %>% select(-tests_quantile) %>%
     labs(color = "Section") +
     scale_color_discrete(labels = c("Q", "V"))
 ```
-Figure \@ref(fig:hquantplot) shows the tightest grouping of scores in the 35-93 hours range, with 3 outliers. Beyond 93 hours studied, the data for both sections appears to be distributed significantly lower. The distributions in \@ref(fig:tquantplot) are somewhat consistent, with a clear exception given to V scores in the 5-6 test range.
+Beyond 93 hours studied, the data for both sections appears to be distributed significantly lower. The distributions in \@ref(fig:tquantplot) are somewhat consistent, though the Q scores appear to tighten up in successive quantiles.
 
 ### Summary Tables {#quants}
 
@@ -625,7 +625,7 @@ hqt <- gre_hours %>% group_by(hours_quantile) %>%
               "V Correlation" = cor(`Hours Studied`, `GRE V`, method = 'spearman') %>% round(3),
               "Q Correlation" = cor(`Hours Studied`, `GRE Q`, method = 'spearman') %>% round(3)) %>%
     select(2:5) %>%
-    bind_cols("Hours Studied" = c("4-34", "35-94", "93-200"), .)
+    bind_cols("Hours Studied" = c("4-34", "35-93", "94-200"), .)
 
 hqt %>% datatable(caption = htmltools::tags$caption(
                         style = "caption-side: bottom;
