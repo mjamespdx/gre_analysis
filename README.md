@@ -1,6 +1,6 @@
 # Preparing for the GRE: Dos and Donts from a Statistical Standpoint
 
-View the report [here](http://msieviec.github.io/gre_analysis/gre.html).
+View the report [here](http://mjamespdx.github.io/gre_analysis/gre.html).
 
 # Abstract
 
